@@ -8,11 +8,10 @@
 目次
 ----------------
 
-* [What is Angular?](#what_is_angular)
 * [Overview](#overview)
 * [Bootstrap]
 * [HTML Compiler]
-* [Conceptual Overview]
+* [Conceptual Overview](#conceptual_overview)
 * [Directives](#directives)
 * [Expressions]
 * [Forms]
@@ -49,7 +48,7 @@ URL
 
 http://docs.angularjs.org/guide/overview
 
-<a=name"what_is_angular">What is Angular?
+<a=name"overview">What is Angular?
 ----------------
 
 AngularJSは動的Webアプリのためのフレームワークです。HTML言語をベースにしており
@@ -78,12 +77,138 @@ Angularはブラウザにdirectivesと呼ばれる新しい構造を教えます
 End-to-end solution
 -------------------
 
+AngularはWebアプリケーションを作る上でend-to-endでの解決方法について試しています。これは一つのピースだけではなくWebアプリケーション構築のためのパズル全体をテストするということを意味します。これはどのようにCRUDのアプリケーソンを構築するべきかについての意見でもあります。しかし意見は意見でしかないので簡単に変更することも可能です。Angularは以下の点が今までのものとは違います。
+
+* CRUDアプリをたてるために必要なもの全てを提供します。データバインディング、基本的なテンプレート、要素の検証、ルーティング、deep-linking, 再利用可能コンポーネント、依存性注入などです。
+* 様々なテストが可能: 単体テスト、シナリオテスト、モックやテストハーネスを用意しています
+* 出発点としてテストスクリプトやディレクトリ構成が提供されます
+
+Angular Sweet Spot
+---
+
+Angularは開発者に高いレベルで抽象化した機能を提供します。どのような抽象化でも柔軟性のコストが存在します。言い換えると全てのアプリケーションがAngularにあうとは考えていません。AngularはCRUDアプリケーションのためにものだとおぼえておいてください。幸運なことに90%以上のアプリケーションはCRUDで表現されます。しかしAngularの何がよくて何がだめなのかは理解するべきです。
+
+ゲームやGUIエディターなどDOMを操作した面白いアプリケーションがあります。それらはCRUDアプリケーションとは違います。また結果としてAngularにとっては得意ではありません。そういった場合ではもっと低いレベルのライブラリ(jQuery)などが良いでしょう。
+
+An Introductory Angular Example
+---
+
+CRUDアプリケーションはフォームを含みます。フォームの値は検証され特にロケールにおいてフォーマットされます。開発者にとって共通のコンセプトは以下になります。
+
+* data-modelをUIと連携する
+* 書き込み、読み込みそしてユーザの入力検証ができる
+* モデルをベースにして新しい値を計算できる
+* ユーザの特定のフォーマットで出力
+
+ソース
+index.html
+```
+<!doctype html>
+<html ng-app>
+<head>
+<script src="http://code.angularjs.org/angular-1.0.3.min.js"></script>
+<script src="script.js"></script>
+</head>
+<body>
+<div ng-controller="InvoiceCntl">
+<b>Invoice:</b>
+<br>
+<br>
+<table>
+<tr><td>Quantity</td><td>Cost</td></tr>
+<tr>
+<td><input type="integer" min="0" ng-model="qty" required ></td>
+<td><input type="number" ng-model="cost" required ></td>
+</tr>
+</table>
+<hr>
+<b>Total:</b> {{qty * cost | currency}}
+</div>
+</body>
+</html>
+```
+
+script.js
+```
+function InvoiceCntl($scope) {
+$scope.qty = 1;
+$scope.cost = 19.95;
+}
+```
+
+end to end test
+```
+it('should show of angular binding', function() {
+expect(binding('qty * cost')).toEqual('$19.95');
+input('qty').enter('2');
+input('cost').enter('5.00');
+expect(binding('qty * cost')).toEqual('$10.00');
+});
+```
+
+この例を試してください、これからどう動いているか確認していきます。
+htmlタグではangular applicationとしてng-app directiveを指定しています。ng-appはAngularの初期化処理を行います。
+
+```
+<html ng-app>
+```
+
+私たちはscriptタグでAngularを読み込みます。
+
+```
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/?.?.?/angular.min.js"></script>
+```
+
+inputタグの属性値であるng-modelをつけることでangularは双方向のデータバインディングを可能にします。そしてさらに簡単な検証を以下に記述します。
+
+```
+Quantity: <input type="integer" min="0" ng-model="qty" required >
+Cost: <input type="number" ng-model="cost" required >
+```
+
+これらの入力値は十分にみえますが以下のポイントを理解してください。
+
+* ページが読まれたときAngularはinputウィジェット(qtyとcost)と同じ名前を関連づけます。それらの考え方で"Model-View-Controller"パターンを作っています。
+* HTMLウィジェットのinputタグは特別な力があります。入力値の検証は入力フィールドが空の状態で離れるもしくは間違ったデータを入れたときに赤になります。それらの振る舞いは共通的にCRUDアプリケーションを検証する上で役立ちます
+
+最後に{{double curly braces}}が不思議です。
+
+```
+Total: {{qty * cost | currency}}
+```
+
+{{_expressino_}}はAngularのデータバインディングの記法です。この文法はexpressionとfilterを重ね合わせたものです。Angularは表示するデータフォーマットのフィルターを行います。
+
+上記の例ではAngularに"入力データをバインドしそして表示する数字の結果をフォーマットしてね"と表現しています。
+
+Angularメソッドを呼ぶことによって振る舞いが呼ばれるわけでなくフレームワークの振る舞いとして実装されています。なぜならば静的な読面とよりも動的に動くWebアプリケーションが必要とされているからです。Angularはフレームワークによってそこの差異を最小限にしようとしています。
+
+The Zen of Angular
+---
+
+AngularはUIとソフトウェアコンポーネントを一緒に開発するよりも宣言的なコードを使ってビジネスロジックをできるだけ表現できるコードがいいと信じています。
+
+
+* アプリケーションのロジックからDOMの操作が離れているところがいいアイデアです。これは劇的にコードのテストしやすさが向上します
+* アプリケーションをかくのと同じくらいテストをかくことは重要です。テストが書くことが難しいとコードの構造にも影響します
+* サーバサイドとクライアントサイドが分離できている点がいいところです。平行に作業が進めることができ再利用も可能です
+* UIデザイン、ビジネスロジックの書き方テストまで全てそろってるのはとても役立ちます
+* 共通的な作業や難しいことを可能にすることはいつでもいいことです
+
+Angularは以下のような痛みから解放します
+
+* callbackの登録: callbackだらけなコードは木の中に森を見つけるように難しいです。コールバックの共通部分を削除することはいいことです。JavaScriptの面倒なとこを削減しアプリケーションの本質に集中することが可能です。
+* DOMをプログラムで操作する: AJAXアプリケーソンではHTMLのDOM操作は基礎的ですが扱いづらくエラーがおこりやすいです。アプリケーションの状態に変更があったときにUIをどのように変化すべきかそこを自由に記述します。Angularで書かれたほとんどのアプリケーションはDOMの操作をプログラムで行いません。
+* UIからのデータを変換する: CRUDアプリはAJAXを使うのがメジャーになっています。サーバからのデータをマーシャルし
+HTMLフォームやフォームの検証検証エラーの表示など様々なデータのフローが考えられます。Angularはそのほとんどの常用文をアプリケーションから分離させ実装の詳細に集中できます
+* イニシャルコストがかかる: "Hello World"というAJAXアプリケーションをかくだけでかなりの労力を使います。angularはservicesを理容師自動でインジェクトされることで簡単にアプリケーションを書くことができます。これにより機能開発に素早くとりかかれます。さらに自動テストも走らせることが可能です。
+
 URL
 ===
 
 http://docs.angularjs.org/guide/concepts
 
-<a name="overview">Overview
+<a name="conceptual_overview">Overview
 ---
 
 このドキュメントはAngularがどのように動いているか素早く知るためのものです。以下のようなコンポーネントがあります。
