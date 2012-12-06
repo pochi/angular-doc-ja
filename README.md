@@ -13,7 +13,7 @@
 * [Bootstrap]
 * [HTML Compiler]
 * [Conceptual Overview]
-* [Directives]
+* [Directives](#directives)
 * [Expressions]
 * [Forms]
 * [i18n and i10n]
@@ -1054,5 +1054,547 @@ To automatically verify that everything is wired properly, we wrote end-to-end t
      });
 
 You can now rerun ./scripts/e2e-test.sh or refresh the browser tab with the end-to-end test runner to see the tests run, or you can see them running on Angular's server.
+
+URL
+===
+
+http://docs.angularjs.org/guide/directive
+
+<a name="directives">Directives
+------------------------------------
+
+DirectivesはHTMLの新しいトリックを教えてくれます。ブラウザがDOMをコンパイルしている間
+directivesはHTMLマッチしたものに対して実行されます。これはdirectiveに振る舞いを登録するか
+DOMに変換することを許容します。
+
+AngularはHTMLの中にdirectives DSLを含めることでWebアプリケーションの構築を効率化します。
+
+Invoking directives from HTML
+-------------------------------------
+
+directivesはngBindと呼ばれるキャメルケースを持っています。directivesはスネークケースを特殊文字（'-'や'_'）込みでキャメルケースに変換し呼び出すことができます。オプションとしてdirectiveは'x-'や'data-'というprefixを利用することでHTMLを検証することができます。
+'ng:bind','ng-bind','ng_bind','x-ng-bind','data-ng-bind'がdirectiveの名前として利用可能です。
+
+directivesはname, attributes, class name,commentなどに記述が可能です。ここにmyDirが呼ばれるサンプルを記述します。
+(ほとんどの場合directiveはattributeに書かれることになります)
+
+```
+    <span my-dir="exp"></span>
+    <span class="my-dir: exp;"></span>
+    <my-dir></my-dir>
+    <!-- directive: my-dir exp -->
+```
+
+directivesは様々な方法で呼び出すことが可能ですが以下の例文の結果で評価されます。
+
+ソース(html)
+```
+    <!doctype html>
+    <html ng-app>
+    <head>
+    <script src="http://code.angularjs.org/angular-1.0.3.min.js"></script>
+    <script src="script.js"></script>
+    </head>
+    <body>
+    <div ng-controller="Ctrl1">
+    Hello <input ng-model='name'> <hr/>
+    &ltspan ng:bind="name"&gt <span ng:bind="name"></span> <br/>
+    &ltspan ng_bind="name"&gt <span ng_bind="name"></span> <br/>
+    &ltspan ng-bind="name"&gt <span ng-bind="name"></span> <br/>
+    &ltspan data-ng-bind="name"&gt <span data-ng-bind="name"></span> <br/>
+    &ltspan x-ng-bind="name"&gt <span x-ng-bind="name"></span> <br/>
+    </div>
+    </body>
+    </html>
+```
+
+ソース(js)
+
+```
+    function Ctrl1($scope) {
+    $scope.name = 'angular';
+    }
+```
+
+ソース(end-to-end test)
+
+```
+    it('should show off bindings', function() {
+    expect(element('div[ng-controller="Ctrl1"] span[ng-bind]').text()).toBe('angular');
+    });
+```
+
+String interpolation
+---------------------
+
+コンパイルしてる間compilerがテキスト及び変数に追加すべき表現を見つけた場合$interpolate serviceを利用します。それらの表現はwatchesにより登録されdigestサイクルによって更新されます。
+interpolationのサンプルは以下のものです。
+
+```
+    <a href="img/{{username}}.jpg">Hello {{username}}!</a>
+```
+
+Compilation process, and directive matchine
+-------------------------
+
+HTMLのコンパイルは以下のフェーズで発生します。
+
+- 最初にブラウザのAPIを利用してDOMを解析します。これはHTMLが解析可能なテンプレートでないといけないため大変重要です。これはDOM要素を利用せず文字列レベルで動作するテンプレートシステムとは対照的です。
+- DOMのコンパイルを行うために$compile()メソッドを呼び出します。このメソッドはDOM及びdirectiveを横断的にコンパイルします。もしdirectivesに関係したDOM要素が見つかったらそれをリストに追加します。一度与えられた全てのDOM要素が解析したら優先度をつけてソートしcompile()関数が実行されます。directiveのcompile関数はDOMの構造を修正し次に紹介するlink()関数を呼び出す責任を与えることができます。$compile()メソッドは別々のdirectiveがcompile関数をによって戻ってきた全てのlinking関数たちのすべてを結合して返します。
+- linkng関数によって呼ばれたscopeをもってLink templateは前のステップで得ることができます。これはこの先別々のdirectiveが要素に登録されたいかなるリスナーやscopeに設定されたwatchの登録許可を意味します。これはDOMとscopeの間でバインドされた結果です。scopeの中の変更はDOMに反映されます。
+
+```
+    var $compile = ...; // injected into your code
+    var scope = ...;
+     
+    var html = '<div ng-bind='exp'></div>';
+     
+    // Step 1: parse HTML into DOM element
+    var template = angular.element(html);
+     
+    // Step 2: compile the template
+    var linkFn = $compile(template);
+     
+    // Step 3: link the compiled template with the scope.
+    linkFn(scope);
+```
+
+Reasons behind the compile/link separation
+---------------------------
+
+ここでポイントなのがなぜコンパイルの過程でcompileフェーズとlinkフェーズに分けられるかということです。
+これを理解するためにrepeaterを利用した例をみてみます。
+
+```
+    Hello {{user}}, you have these actions:
+    <ul>
+    <li ng-repeat="action in user.actions">
+    {{action.description}}
+    </li>
+    </ul>
+```
+
+簡単にいうとcompileとlinkが分かれているのはrepeatersのようなDOMの構造でmodelの変更によっていつでも変更される可能性があるためです。
+
+サンプルのようにコンパイルされた場合、コンパイラはdirectivesの為に全てのノードを訪れます。{{user}}はinterpolation directiveの例です。ngRepeatも別のdirectiveです。しかしngRepeatはジレンマをもっています。それはuser.acitions内の各actionについて素早くliたちを消す必要あることです。これはli要素をクローンするためにコピーし新しいactionsが挿入されることを意味します。li要素のtemplateはクローンあsれulの中に挿入されます。しかしli要素をクローンするだけでは十分ではありません。liをコンパイルするということは正しいscopeによって{{action.descriptions}}のようなdirectiveが評価されるということです。繊細なメソッドはli要素をコピーしそれをコンパイルします。しかし全てのli要素をコンパイルすると遅くなるためDOMがコンパイルされて必要なdirectivesが見つかったときにコンパイルされます。もし私たちがrepeaterの内側でコンパイルするようにしていたとすると100個のアイテムを利用した時点でパフォーマンスの問題が発生するでしょう。
+
+解決方法としてコンパイルプロセスに２つのフェーズを用います。compileフェーズでは全てのdirectivesが識別して優先度によって並び替えます。 linking phaseではscopeインスタンスによって関連づけされliインスタンスがどのように動くかを登録します。
+
+ngRepeatはli要素のなかでコンパイルプロセスが走らないようにします。ngRepet directiveは各li要素をそれぞれコンパイルします。li要素がコンパイルされた結果クローンされて準備されたli要素が含まれた全てのdirectivesはlinikng関数となります。実行時にngRepeatは要素を関してして追加されたときにli要素を配列に追加し新しくクローンされたli要素をもったscopeを作ります。
+
+まとめ：
+
+* compile機能 - ほとんどのdirectiveがテンプレートではなく特定のDOMに結びつくものなのでcompile関数はdirectivesの中では比較的まれです。インスタンスやdirectiveで共有可能な指令は性能上の理由でcompile機能で呼び出されるようにするべきです。
+* link機能 - link機能を持たないdirectiveにとってはまれです。リンク機能はscopeからDOMに内容をコピーしたインスタンスに対してリスナーを登録することができます。
+
+Writing directive(short version)
+-----------------------
+
+次の例では現在の時刻が表示されるdirectiveを構築します。
+
+HTML
+```
+    <!doctype html>
+    <html ng-app="time">
+    <head>
+    <script src="http://code.angularjs.org/angular-1.0.3.min.js"></script>
+    <script src="script.js"></script>
+    </head>
+    <body>
+    <div ng-controller="Ctrl2">
+    Date format: <input ng-model="format"> <hr/>
+    Current time is: <span my-current-time="format"></span>
+    </div>
+    </body>
+    </html>
+```
+
+JS
+```
+    function Ctrl2($scope) {
+    $scope.format = 'M/d/yy h:mm:ss a';
+    }
+     
+    angular.module('time', [])
+    // Register the 'myCurrentTime' directive factory method.
+    // We inject $timeout and dateFilter service since the factory method is DI.
+    .directive('myCurrentTime', function($timeout, dateFilter) {
+    // return the directive link function. (compile function not needed)
+    return function(scope, element, attrs) {
+    var format, // date format
+    timeoutId; // timeoutId, so that we can cancel the time updates
+     
+    // used to update the UI
+    function updateTime() {
+    element.text(dateFilter(new Date(), format));
+    }
+     
+    // watch the expression, and update the UI on change.
+    scope.$watch(attrs.myCurrentTime, function(value) {
+    format = value;
+    updateTime();
+    });
+     
+    // schedule update in one second
+    function updateLater() {
+    // save the timeoutId for canceling
+    timeoutId = $timeout(function() {
+    updateTime(); // update DOM
+    updateLater(); // schedule another update
+    }, 1000);
+    }
+     
+    // listen on DOM destroy (removal) event, and cancel the next UI update
+    // to prevent updating time ofter the DOM element was removed.
+    element.bind('$destroy', function() {
+    $timeout.cancel(timeoutId);
+    });
+     
+    updateLater(); // kick off the UI update process.
+    }
+    });
+```
+
+Writing directives(long version)
+--------------------------
+
+```
+    var myModule = angular.module(...);
+     
+    myModule.directive('directiveName', function factory(injectables) {
+    var directiveDefinitionObject = {
+    priority: 0,
+    template: '<div></div>',
+    templateUrl: 'directive.html',
+    replace: false,
+    transclude: false,
+    restrict: 'A',
+    scope: false,
+    compile: function compile(tElement, tAttrs, transclude) {
+    return {
+    pre: function preLink(scope, iElement, iAttrs, controller) { ... },
+    post: function postLink(scope, iElement, iAttrs, controller) { ... }
+    }
+    },
+    link: function postLink(scope, iElement, iAttrs) { ... }
+    };
+    return directiveDefinitionObject;
+    });
+```
+
+ほとんどの場合において上記の例のようにする必要はありません。このスケルトンの違う部分の全ては以下の章で説明します。この章ではスケルトンに興味を持ってください。
+
+これが一番シンプルなコードです
+
+```
+    var myModule = angular.module(...);
+     
+    myModule.directive('directiveName', function factory(injectables) {
+    var directiveDefinitionObject = {
+    compile: function compile(tElement, tAttrs) {
+    return function postLink(scope, iElement, iAttrs) { ... }
+    }
+    };
+    return directiveDefinitionObject;
+    });
+```
+
+ほとんどのdirectiveはテンプレート変換ではなくインスタンスに追加されるものなのでもっと単純に記述可能です。
+
+```
+    var myModule = angular.module(...);
+     
+    myModule.directive('directiveName', function factory(injectables) {
+    return function postLink(scope, iElement, iAttrs) { ... }
+    });
+```
+
+Factory method
+-----
+
+factoryメソッドはdirectiveを生成するための債務を持ちます。それはcompilerによってdirectiveが該当したときに一度だけ呼ばれます。あなたはここで初期か処理を記述します。factoryメソッデは$injector.invokeを使って呼び出されます。$injdecto.invokeはjndectionアノテーションのルールに従ってinjectを行います。
+
+Directive Definitaion Object
+----------
+
+directiveを定義するオブジェクトはcompilerによって与えられます。
+以下の引数があります。
+
+* name - 現在のscope名です。登録する名前はデフォルトオプションです。
+* priority - 複数のdirectiveが単一のDOMに定義されたとき、時々どのdirectiveを適用するか判断が必要になります。'priority'はcomplie関数が呼ばれたときにdirectiveをソートするために使います。高い'priority'をもったものが最初に呼ばれます。同じ優先度でdirectiveを並べ替えようとする場合順番は不確定になります。
+* terminal - もしtrueを設定するとdirectiveの中で最後に呼ばれるようになります。（どんなdirectivesも同じpriorityの時の順序は不確定です）
+* scope - セットする場合:
+  * true - このdirectiveのためのあたらしいscopeが生成されます。もし複数のdirectivesが同じ要素に対して新しいscopeをリクエストした場合一つの新しいscopeのみが生成されます。新しいscopeのルールはroot templateのみ適用されません。なぜならroot elementはいつも新しいscopeを作成するためです。
+  * {}(object hash) - 新しい'isolate'scopeが生成されます。これが普通のscopeと違うのは親のscopeを継承しない点です。これはparent scopeに依存したくない再利用可能なコンポーネントを生成するときに役立ちます。'isolate'scopeはparent scopeから持ってきたlocal scopeが定義されているobject hashを引数にとります。それらのlocal propertiesはテンプレートの値を別名で利用したいときに有効です。local scopeで定義する時は以下の設定を行います。
+    * @ or @attr - DOMの引数の値をlocal scopeに関連づけします。結果はいつもDOM引数の文字列になります。もし名前がない場合はlocalのnameと同じ値になります。 <widget my-attr="hello {{name}}">が与えられウィジェットがscope: { localName:'@myAttr' }と定義された場合、ウィジェットのlocalNameはhello{{name}}を持ちます。name引数はウィジェットscopeのlocaNameプロパティによって変更されます。nameはparen scopeから読まれます。
+
+    * = or =attr - local scopeとparent scopeの間で変数を関連づけしたいときに使います。もしnameが与えられない場合local nameと同じものを想定します。 <widget my-attr="hello {{name}}">が与えられウィジェットがscope: { localModel:'=myAttr' }と定義された場合、ウィジェットscopeのlocalModel変数はparent scopeのparentModelによって反映されます。parentModelの全ての変更はlocalModleに反映されるようになりlocalModleの変更もparentModelに適用されます。
+
+    * & or &attr - parent scopeの文法にある表現を利用したいときに使います。もしattrが定義されていない場合引数の名前はlocal nameと同じものだと想定します。 <widget my-attr="count = count + value">が与えられウィジェットがscope: { localFn:'&myAttr' }と定義された場合、localFnはcount = count + valueの表現をラップした関数となります。parent scopeに対して関数経由でisolated scopeからデータを渡すことは望ましいですがlocalの変数の名前を一覧にして渡すことができます。例えばもし関数increment(amount)であればlocalFn(
+    {amount: 22})としてlocalNfを呼ぶことでabount valueを取得することが可能です。
+
+* controller - Controllerはコンストラクタ関数です。controllerはlinkngされる前にインスタンス化されもしnameがリクエストされていたらそのdirectiveと共有します。これはそれぞれの振る舞いをdirective間で話すことができるということです。controllerは以下のローカル変数にインジェクトできます。
+  * $scope - 現在のscopeを要素に関連づけます
+  * $element - 現在の要素
+  * $attrs - 現在の要素が持っている設定
+  * $transclude - linnkng functionを実行する前に呼び出すscopeの関数を定義する: function(cloneLinkingFn)
+* require - directive linking関数内で別のcontrollerを通したいときに利用する。requireは通したいcontrollerを引数にとる。もしconrtollerが見つからない場合エラーが発生する。nameは次の接頭語が利用可能。
+  * ? - エラーを発生させない。これはrequireに依存したオプション
+  * ^ - 親の要素で関連づけられているcontrollerをみる
+* restrice - directiveのスタイルを指定できる。以下のオプションが指定可能。
+  * E - 要素名(<my-directive></my-directive>)
+  * A - 属性(<div my-directive="exp"></div>)
+  * C - クラス(<div class="my-directive: exp;"></div>)
+  * M - コメント(<!-- directive: my-directive: exp; -->)
+* template - 現在のHTMLの中身を置きかえる。この置き換えは全ての属性、クラスを新しいものにする。詳しい情報はCreating Widgetsを参照してください。
+* templateUrl - templateと同じだがURLから読み込む場合はこちらを利用します。非同期で読み込む場合compile/linkngが中断するためである。
+* replace - もしtrueにセットされてい場合現在の要素が持っているtemplateより優先して置き換える。
+* transclude - 要素の中身をコンパイルしdirectiveを有効にする。ngTransCludeが利用される。tansclusionの利点はlinkng関数が正しいscopeに関連づけられる前にtransclusion関数を受けることができる点です。もしウィジェットをisolate scopeとして生成した場合transclusionは子供ではなくisolate scopeの兄弟分として扱われます。これはウィジェットがプライベーな状態を持てることを意味しておりtransclusionはparent scopeに関連づけられます。
+  * true - directiveの内容を引用する
+  * 'element' - 要素に含まれた全てのdirectivesと優先度を引用する
+* compile - 以下の章で説明するcompile関数
+* link - 以下の章で説明するlink関数。この属性はcompile属性が定義されていないときのみ利用される。
+
+
+Compile function
+--------------
+
+```
+    function compile(tElement, tAttrs, transclude) { ... }
+```
+
+compile関数はDOMテンプレートの変換部分を扱います。ほとんどのdirectiveはtemplateへの変換を行わないため、あまり利用されるものでありません。compile関数を必要とする例はngRepeatなどを利用したtemplate DOMを変更するdirectiveもしくはngViewのように遅延評価して内容を読み込むものです。compile関数は以下の引数をとります。
+
+* tElement - template element - 記述されたdirectiveの要素。安全に変更するため要素と小要素のみを適用範囲とします。
+* tAttrs - template attributes - 全てのdirectiveのcompile関数のなかで共有される要素上の変数。
+* transclude - transclude linking function: function(scope, cloneLinkingFn)
+
+注意: templateインスタンスとlinkインスタンスはtemplateが複製された場合同じオブジェクトではありません。このためcompile関数でDOMを変換する際にDOMを複製することは安全ではない。特にDOMリスナーを登録する場合compile関数ではなくlink関数で行うべきである。
+
+compile関数は関数もしくはオブジェクトを返すことができる。
+
+* 関数を返す - compile関数が空のとき設定オブジェクトのlink属性を経由してlinking関数を登録し評価する。
+* preもしくはhost属性で登録された関数付きオブジェクトを返す - linking過程で呼ばれるlinking関数を管理する。詳しくはpre-linkingとpostlinking関数を参照してください。
+
+Linkng function
+-------
+
+```
+function link(scope, iElement, iAttrs, controller) { ... }
+```
+
+link関数はDOMの更新と同様DOMのリスナーを登録する債務をもつ。これはtemlateが複製された後実行される。これはdirectiveロジックのほとんどで実行される。
+
+* scope - Scope - watchesに登録するためのdirectiveが利用するscope
+* iElement - instance element - directiveに利用されている要素。小要素でリンクされてからpostLink関数のなかで要素の子供を安全に操作する。
+* iAttrs - instance attributes - 全てのdirectiveで共有されるlinikng関数の属性をリストで記述する
+* controller - a controller instance - もし最低一つでも要素にcontrollerが指定されていた場合controllerインスタンスを記述する。contrllerはコミュニケーションチャンネルcontrollersを利用している全てのdirectiveの間で共有される。
+
+Pre-linkng function
+-----
+
+小要素がリンクされる前に実行される。compilerが正しい要素に対してlinking関数を実行しようとして失敗してしまうとDOMを変換するのは安全ではありません。
+
+Post-linking function
+---
+
+小要素がリンクされた後実行される。こおでDOMの変換を行うのは安全。
+
+Attributes
+---
+
+link関数もしくはcompile関数のパラメータとして許容されるものは以下のものである。
+
+* 一般的な変数名: Angularが許容しているdirectibe(ngBind, ng:bind, x-ng-bind)
+* directive inter-communication: 全てのdirectivはinter directive communicationとして定義された属性を使っているdirectiveは同じ属性オブジェクトの共有が可能
+* support interpolation: 改変属性は他のdirectivesによって改変された値を読み込むことが許された属性オブジェクトによって変更される。
+* observing interpolited attributes: $observeを使うことで内容の変更を監視することができる。(e.g.src="{{bar}}")これは効果的というだけではなく値を簡単に取得できます。linkingの過程では改変は評価されず値はundefinedに設定されるためである。
+
+```
+function linkingFn(scope, elm, attrs, ctrl) {
+// get the attribute value
+console.log(attrs.ngModel);
+ 
+// change the attribute
+attrs.$set('ngModel', 'new value');
+ 
+// observe changes to interpolated attribute
+attrs.$observe('ngModel', function(value) {
+console.log('ngModel has changed value to ' + value);
+});
+}
+```
+
+Understanding Transclusion and Scopes
+----
+
+再生可能なコンポーネントに対して有効です。以下にダイアログ機能が動くサンプルをお見せします。
+
+```
+<div>
+<button ng-click="show=true">show</button>
+<dialog title="Hello {{username}}."
+visible="show"
+on-cancel="show = false"
+on-ok="show = false; doSomething()">
+Body goes here: {{username}} is {{title}}.
+</dialog>
+```
+"show"ボタンをクリックするとダイアログが開きます。ダイアログはusernameによって関連づけられたタイトルを持ちそしてダイアログのなかで引用できるようbodyにも持っています。
+
+これがダイアログを定義するためのテンプレートサンプルです。
+
+```
+<div ng-show="show">
+<h3>{{title}}</h3>
+<div class="body" ng-transclude></div>
+<div class="footer">
+<button ng-click="onOk()">Save changes</button>
+<button ng-click="onCancel()">Close</button>
+</div>
+</div>
+```
+
+これだけだとscopeを利用していないため表示されません。
+これはtitleが定義されると予想したダイアログボックステンプレートを解決するための最初の問題である。しかしインスタンスにはusernameを関連づけたい。ボタンはscope内でonCancel関数が送られてくると同様にonOkも送られることを期待しています。このマッピングするための問題を解決するために私たちはlocalsを利用してローカル変数を作りテンプレートの期待する結果に変更したいと思います。
+
+```
+scope: {
+title: '=', // set up title to accept data-binding
+onOk: '&', // create a delegate onOk function
+onCancel: '&', // create a delegate onCancel function
+show: '='
+}
+```
+
+ウィジェットscope上にローカル変数を生成すると2つの問題があります:
+
+- isolation - もしユーザがtitle属性を設定するのを忘れてしまったらparent scopeの属性値をみます。これは予期していない場合うれしくありません。
+- transclusion - transcluded DOMはデータバインディングに必要な上書きできる ウィジェットのローカル変数を共有できます。この例ではウィジェットのtitle属性はtransclusionのtitle属性にこきを使われてしまいます
+
+isolationの問題を解決するために、directiveに新しくisolate scopeを記述します。分離されたscopeは子どものscopeから属性値を継承されません。よってどんな属性値も変更される危険はなくなります。
+
+しかし分離されたscopeは新しい問題を生成します。それはもし引用されたDOMがウィジェットの分離されたscopeの子供だった場合何もバインドできなくなります。このためウィジェットがローカル変数をもって分離する前にtranscluded scopeは元のscopeの子供である必要があります。これはtranscluded scopeとウィジェットの分離されたscopeの兄弟分を作ることを意味します。
+
+これは複雑に見えますがユーザと開発書に驚きを与えます。
+最終的にdirectiveの定義は以下のようにします。
+
+```
+transclude: true,
+scope: {
+title: 'bind', // set up title to accept data-binding
+onOk: 'expression', // create a delegate onOk function
+onCancel: 'expression', // create a delegate onCancel function
+show: 'accessor' // create a getter/setter function for visibility.
+}
+```
+
+Creating Components
+---
+
+複雑なDOM構造を持った一つのdirectiveを置き換えたいことはよくあります。
+これはdirectivesに対してアプリケーションが構築するための簡単で再利用可能なコンポーネントを作ることを意味します。
+
+以下に再利用可能なコンポーネントウィジェットを記述します。
+
+index.html
+```
+<!doctype html>
+<html ng-app="zippyModule">
+<head>
+<script src="http://code.angularjs.org/angular-1.0.3.min.js"></script>
+<script src="script.js"></script>
+</head>
+<body>
+<div ng-controller="Ctrl3">
+Title: <input ng-model="title"> <br>
+Text: <textarea ng-model="text"></textarea>
+<hr>
+<div class="zippy" zippy-title="Details: {{title}}...">{{text}}</div>
+</div>
+</body>
+</html>
+```
+
+style.css
+
+```
+.zippy {
+border: 1px solid black;
+display: inline-block;
+width: 250px;
+}
+.zippy.opened > .title:before { content: '▼ '; }
+.zippy.opened > .body { display: block; }
+.zippy.closed > .title:before { content: '► '; }
+.zippy.closed > .body { display: none; }
+.zippy > .title {
+background-color: black;
+color: white;
+padding: .1em .3em;
+cursor: pointer;
+}
+.zippy > .body {
+padding: .1em .3em;
+}
+```
+
+scripts.js
+
+```
+function Ctrl3($scope) {
+$scope.title = 'Lorem Ipsum';
+$scope.text = 'Neque porro quisquam est qui dolorem ipsum quia dolor...';
+}
+ 
+angular.module('zippyModule', [])
+.directive('zippy', function(){
+return {
+restrict: 'C',
+// This HTML will replace the zippy directive.
+replace: true,
+transclude: true,
+scope: { title:'@zippyTitle' },
+template: '<div>' +
+'<div class="title">{{title}}</div>' +
+'<div class="body" ng-transclude></div>' +
+'</div>',
+// The linking function will add behavior to the template
+link: function(scope, element, attrs) {
+// Title element
+var title = angular.element(element.children()[0]),
+// Opened / closed state
+opened = true;
+ 
+// Clicking on title should open/close the zippy
+title.bind('click', toggle);
+ 
+// Toggle the closed/opened state
+function toggle() {
+opened = !opened;
+element.removeClass(opened ? 'closed' : 'opened');
+element.addClass(opened ? 'opened' : 'closed');
+}
+ 
+// initialize the zippy
+toggle();
+}
+}
+});
+```
+
+end-to-end test
+```
+it('should bind and open / close', function() {
+input('title').enter('TITLE');
+input('text').enter('TEXT');
+expect(element('.title').text()).toEqual('Details: TITLE...');
+expect(binding('text')).toEqual('TEXT');
+ 
+expect(element('.zippy').prop('className')).toMatch(/closed/);
+element('.zippy > .title').click();
+expect(element('.zippy').prop('className')).toMatch(/opened/);
+});
+```
 
 
