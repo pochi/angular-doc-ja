@@ -22,11 +22,11 @@
 * [Modules]
 * [Scopes]
 * [Type]
-* [Dependency Injection]
-* [About MVC in Angular]
-* [Understanding the Model Component]
-* [Understanding the Controller Component]
-* [Understanding the View Component]
+* [Dependency Injection](#dependency_injection)
+* [About MVC in Angular](#about_mvc_in_angular)
+* [Understanding the Model Component](#understanding_the_model_component)
+* [Understanding the Controller Component](#understanding_the_controller_component)
+* [Understanding the View Component](#understanding_the_view_component)
 * [E2E Testing]
 * [Understanding Angular Templates]
 * [Working With CSS in Angular]
@@ -271,6 +271,10 @@ URL
 
 http://docs.angularjs.org/guide/dev_guide.mvc
 
+<a name="about_mvc_in_angular">About MVC in Angular
+--------------------
+
+
 AngularはクライアントアプリケーションとしてオリジナルMVCの原則を組み込んでいます。
 
 MVCパターンのすばらしいところは以下の点があります。
@@ -291,6 +295,9 @@ URL
 ===
 
 http://docs.angularjs.org/guide/dev_guide.mvc.understanding_model
+
+<a name="understanding_the_model_component">Understanding the Model Component
+-----------------
 
 angularドキュメントのdiscussionの文脈によるとmodelは一つのエンティティもしくは空のデータモデルを表現します。
 (例えば"phones"と呼ばれるモデルはphonesの配列値をもっています)
@@ -357,6 +364,9 @@ URL
 ===
 
 http://docs.angularjs.org/guide/dev_guide.mvc.understanding_controller
+
+<a name="understanding_the_controller_component"> Understanding the Controller Component
+-------------------------------
 
 angularではcontrollerはangular Scopeのインスタンスを引数にもった(root scopeは除外する)JavaScript関数（クラス）です。
 あなたがscope.$new APIを利用してchild scopeを作成したときcontrollerにはmethod引数にchild scopeを渡します。
@@ -573,6 +583,9 @@ URL
 
 http://docs.angularjs.org/guide/dev_guide.mvc.understanding_view
 
+<a name="understanding_the_view_component">Understanding the View Component
+--------------------------
+
 angularではviewはtemplate, controller, modelの情報をベースにDOMに変換し
 ブラウザ内でDOMをロードしレンダリングします。
 
@@ -589,7 +602,7 @@ URL
 
 http://docs.angularjs.org/guide/di
 
-Dependncy Injection
+<a name="dependency_injection">Dependncy Injection
 ---
 
 DIは依存関係を記述するためのソフトウェアデザインパターンです。
